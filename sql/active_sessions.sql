@@ -53,3 +53,58 @@ FROM pg_stat_activity
 
 ORDER BY
     query_start NULLS LAST;
+
+
+/* Only show active sessions */
+
+SELECT
+    pid,
+    usename,
+    datname,
+    application_name,
+    client_addr,
+    state,
+
+    ROUND(
+        EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - query_start)),
+        2
+    ) AS running_seconds,
+
+    wait_event_type,
+    wait_event,
+
+    LEFT(query, 500) AS query
+
+FROM pg_stat_activity
+
+WHERE state = 'active'
+    AND pid <> pg_backend_pid()
+
+ORDER BY running_seconds DESC;
+
+/* Highlight long-running queries (>5 minutes) */
+
+SELECT
+    pid,
+    usename,
+    datname,
+    application_name,
+
+    AGE(CURRENT_TIMESTAMP, query_start) AS duration,
+
+    state,
+
+    LEFT(query, 500) AS query
+
+FROM pg_stat_activity
+
+WHERE query_start IS NOT NULL
+    AND CURRENT_TIMESTAMP - query_start > INTERVAL '5 minutes'
+    AND pid <> pg_backend_pid()
+
+ORDER BY duration DESC;
+
+
+
+
+
